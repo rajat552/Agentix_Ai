@@ -2,37 +2,37 @@ const workflowService = require('../services/workflowService');
 const Task = require('../models/Task');
 const pdf = require('pdf-parse');
 const Conversation = require('../models/Conversation');
+const { successResponse, errorResponse } = require('../utils/responseHandler');
 
 exports.handleChat = async (req, res, next) => {
     const { message } = req.body;
+    const userId = req.user?.id || 'demo-user';
 
     if (!message || typeof message !== 'string' || !message.trim()) {
-        return res.status(400).json({ error: 'Message is required and must be a non-empty string' });
+        return errorResponse(res, 'Message is required and must be a non-empty string', 400);
     }
 
     try {
-        // 1. Retrieve last 6 messages for context
-        const history = await Conversation.find()
-            .sort({ timestamp: -1 })
-            .limit(6)
-            .then(docs => docs.reverse());
+        console.log(`[CHAT]: User ${userId} sent: "${message}"`);
+        // 1. Skip history for now
+        // const history = await Conversation.find({ userId }).sort({ timestamp: -1 }).limit(6).then(docs => docs.reverse());
+        const history = [];
 
-        // 2. Execute workflow with context
+        // 2. Execute workflow
+        console.log('[CHAT]: Starting workflow execution...');
         const result = await workflowService.executeAgentWorkflow(message, "", history);
+        console.log('[CHAT]: Workflow complete.');
 
-        // 3. Persist new interaction
-        await Conversation.create({ role: 'user', content: message, intents: result.workflowExecuted });
-        await Conversation.create({ role: 'assistant', content: result.reply });
-
-        res.json(result);
+        return successResponse(res, result);
     } catch (error) {
+        console.error('[CHAT]: Error in handleChat:', error);
         next(error);
     }
 };
 
 exports.handleUpload = async (req, res, next) => {
     if (!req.file) {
-        return res.status(400).json({ error: 'No file uploaded' });
+        return errorResponse(res, 'No file uploaded', 400);
     }
 
     try {
@@ -40,7 +40,8 @@ exports.handleUpload = async (req, res, next) => {
 
         if (req.file.mimetype === 'application/pdf') {
             try {
-                const data = await pdf(req.file.buffer);
+                const parser = new pdf.PDFParse({ data: req.file.buffer });
+                const data = await parser.getText();
                 text = data.text;
             } catch (pdfError) {
                 console.warn('PDF parse failed, using raw text:', pdfError.message);
@@ -59,7 +60,7 @@ exports.handleUpload = async (req, res, next) => {
             text
         );
 
-        res.json({
+        return successResponse(res, {
             filename: req.file.originalname,
             analysis: result.reply,
             ...result
@@ -74,7 +75,7 @@ exports.handleUpload = async (req, res, next) => {
 exports.getTasks = async (req, res, next) => {
     try {
         const tasks = await Task.find().sort({ createdAt: -1 });
-        res.json(tasks);
+        return successResponse(res, tasks);
     } catch (error) {
         next(error);
     }
@@ -84,12 +85,12 @@ exports.createTask = async (req, res, next) => {
     const { title } = req.body;
 
     if (!title || typeof title !== 'string' || !title.trim()) {
-        return res.status(400).json({ error: 'Task title is required' });
+        return errorResponse(res, 'Task title is required', 400);
     }
 
     try {
         const task = await Task.create({ title: title.trim(), description: req.body.description || '', status: 'pending' });
-        res.status(201).json(task);
+        return successResponse(res, task, 201);
     } catch (error) {
         next(error);
     }
@@ -99,11 +100,11 @@ exports.toggleTaskStatus = async (req, res, next) => {
     const { id } = req.params;
     try {
         const task = await Task.findById(id);
-        if (!task) return res.status(404).json({ error: 'Task not found' });
+        if (!task) return errorResponse(res, 'Task not found', 404);
 
         task.status = task.status === 'completed' ? 'pending' : 'completed';
         await task.save();
-        res.json(task);
+        return successResponse(res, task);
     } catch (error) {
         next(error);
     }

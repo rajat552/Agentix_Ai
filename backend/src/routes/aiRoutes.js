@@ -5,15 +5,17 @@ const multer = require('multer');
 
 const upload = multer({ storage: multer.memoryStorage() });
 
+const auth = require('../middleware/auth');
+
 // Chat & Workflow
-router.post('/chat', aiController.handleChat);
+router.post('/chat', auth, aiController.handleChat);
 
 // Document Intelligence
-router.post('/upload', upload.single('document'), aiController.handleUpload);
+router.post('/upload', auth, upload.single('document'), aiController.handleUpload);
 
 // Task Management
-router.get('/tasks', aiController.getTasks);
-router.post('/tasks', aiController.createTask);
-router.patch('/tasks/:id/toggle', aiController.toggleTaskStatus);
+router.get('/tasks', auth, aiController.getTasks);
+router.post('/tasks', auth, aiController.createTask);
+router.patch('/tasks/:id/toggle', auth, aiController.toggleTaskStatus);
 
 module.exports = router;

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import TaskCard from '../components/TaskCard';
 import { Plus, Filter, SortAsc, LayoutGrid, CheckSquare, X } from 'lucide-react';
-import { getTasks, createTask, toggleTaskStatus } from '../services/api';
+import { getTasks, createTask, toggleTaskStatus, deleteTask } from '../services/api';
 import { motion } from 'framer-motion';
 
 const TaskManager = () => {
@@ -9,6 +9,7 @@ const TaskManager = () => {
     const [showModal, setShowModal] = useState(false);
     const [newTitle, setNewTitle] = useState('');
     const [newDescription, setNewDescription] = useState('');
+    const [taskToDelete, setTaskToDelete] = useState(null);
 
     const fetchTasks = async () => {
         const data = await getTasks();
@@ -30,6 +31,17 @@ const TaskManager = () => {
 
     const handleToggle = async (id) => {
         await toggleTaskStatus(id);
+        fetchTasks();
+    };
+
+    const handleDeleteClick = (id) => {
+        setTaskToDelete(id);
+    };
+
+    const confirmDelete = async () => {
+        if (!taskToDelete) return;
+        await deleteTask(taskToDelete);
+        setTaskToDelete(null);
         fetchTasks();
     };
 
@@ -70,7 +82,7 @@ const TaskManager = () => {
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ delay: idx * 0.05 }}
                     >
-                        <TaskCard {...task} onToggle={handleToggle} />
+                        <TaskCard {...task} onToggle={handleToggle} onDelete={handleDeleteClick} />
                     </motion.div>
                 ))}
 
@@ -118,6 +130,34 @@ const TaskManager = () => {
                                 className="px-5 py-2 bg-primary text-white rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:brightness-110 active:scale-95 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
                             >
                                 Create
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Delete Confirmation Modal */}
+            {taskToDelete && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+                    <div className="bg-card-bg border border-border-subtle rounded-3xl p-8 w-full max-w-md shadow-2xl">
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="text-xl font-black text-red-500">Delete Task</h2>
+                            <button onClick={() => setTaskToDelete(null)} className="text-text-muted hover:text-text-main transition-colors">
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <p className="text-text-muted mb-8">
+                            Are you sure you want to delete this task? This action cannot be undone.
+                        </p>
+                        <div className="flex gap-3 justify-end">
+                            <button onClick={() => setTaskToDelete(null)} className="px-5 py-2 bg-white/5 border border-white/10 rounded-xl text-sm font-bold hover:bg-white/10 transition-all">
+                                Cancel
+                            </button>
+                            <button
+                                onClick={confirmDelete}
+                                className="px-5 py-2 bg-red-500/20 text-red-500 border border-red-500/50 rounded-xl text-sm font-bold shadow-lg shadow-red-500/10 hover:bg-red-500 hover:text-white active:scale-95 transition-all"
+                            >
+                                Delete
                             </button>
                         </div>
                     </div>

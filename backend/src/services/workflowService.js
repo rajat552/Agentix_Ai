@@ -1,10 +1,10 @@
-const novaService = require('./novaService');
+const geminiService = require('./geminiService');
 const Task = require('../models/Task');
 
 /**
  * Agent Workflow Engine
  * Responsible for reasoning, planning, and executing multi-step AI workflows.
- * Simulates "Nova Act" by logging specific UI/Action steps.
+ * Simulates "Gemini Act" by logging specific UI/Action steps.
  */
 class WorkflowService {
     async executeAgentWorkflow(command, documentText = "", history = []) {
@@ -17,7 +17,7 @@ class WorkflowService {
         };
 
         try {
-            addLog("Analyzing natural language command with Nova 2 Lite...");
+            addLog("Analyzing natural language command with Gemini 2.5 Flash...");
 
             // Step 1 & 2: Intent Detection
             const intentPrompt = `
@@ -29,7 +29,7 @@ class WorkflowService {
         { "intents": ["intent1", "intent2"] }
       `;
 
-            const analysisResponse = await novaService.invokeNova(intentPrompt, "You are an Intent Detection Agent.");
+            const analysisResponse = await geminiService.invokeGemini(intentPrompt, "You are an Intent Detection Agent.");
             let intents = ["general_chat"];
 
             try {
@@ -64,26 +64,26 @@ class WorkflowService {
                 try {
                     addLog(`Executing workflow step ${step.step}: ${step.action.replace('_', ' ')}...`);
 
-                    // Simulating "Nova Act" UI workflow steps
+                    // Simulating "Gemini Act" UI workflow steps
                     if (step.action === 'summarize_document') {
                         addLog("Parsing document segments & calculating multimodal embeddings...");
                         const textToSummarize = documentText || command;
-                        finalResult.summary = await novaService.summarizeDocument(textToSummarize);
+                        finalResult.summary = await geminiService.summarizeDocument(textToSummarize);
                         finalResult.reply += `\n\n📄 **Summary:**\n${finalResult.summary}`;
                         addLog("Summary generated successfully.");
                     }
 
                     if (step.action === 'generate_tasks') {
-                        addLog("Scanning content for actionable items (Nova Reasoning)...");
+                        addLog("Scanning content for actionable items (Gemini Reasoning)...");
                         const textForTasks = documentText || command;
-                        const extractedTasks = await novaService.generateTasks(textForTasks);
+                        const extractedTasks = await geminiService.generateTasks(textForTasks);
 
                         addLog(`Identified ${extractedTasks.length} potential tasks. Syncing with MongoDB...`);
                         for (const t of extractedTasks) {
                             try {
                                 const savedTask = await Task.create({
                                     title: t.title,
-                                    description: t.description || "Synthesized by Nova Copilot",
+                                    description: t.description || "Synthesized by Gemini Copilot",
                                     status: 'pending'
                                 });
                                 finalResult.tasks.push(savedTask);
@@ -98,7 +98,7 @@ class WorkflowService {
                     if (step.action === 'draft_email') {
                         addLog("Synthesizing professional email draft...");
                         const draftPrompt = `Draft a professional email based on this context: ${documentText || command}`;
-                        finalResult.emailDraft = await novaService.generateResponse(draftPrompt);
+                        finalResult.emailDraft = await geminiService.generateResponse(draftPrompt);
                         finalResult.reply += `\n\n📧 **Email Draft:**\n${finalResult.emailDraft}`;
                         addLog("Email draft synthesized.");
                     }
@@ -106,13 +106,13 @@ class WorkflowService {
                     if (step.action === 'plan_schedule') {
                         addLog("Optimizing schedule for maximum productivity...");
                         const schedulePrompt = `Create a structured schedule based on this: ${command}`;
-                        const schedule = await novaService.generateResponse(schedulePrompt);
+                        const schedule = await geminiService.generateResponse(schedulePrompt);
                         finalResult.reply += `\n\n📅 **Planned Schedule:**\n${schedule}`;
                         addLog("Schedule optimization complete.");
                     }
 
                     if (step.action === 'general_chat' && intents.length === 1) {
-                        finalResult.reply = await novaService.generateResponse(command, history);
+                        finalResult.reply = await geminiService.generateResponse(command, history);
                     }
                 } catch (stepError) {
                     addLog(`Step ${step.action} failed: ${stepError.message}`, 'warn');

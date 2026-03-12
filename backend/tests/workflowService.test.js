@@ -1,5 +1,5 @@
 const workflowService = require('../src/services/workflowService');
-const novaService = require('../src/services/novaService');
+const geminiService = require('../src/services/geminiService');
 const Task = require('../src/models/Task');
 
 // Mock Task.create to avoid DB hits
@@ -18,8 +18,8 @@ describe('WorkflowService', () => {
     });
 
     test('executeAgentWorkflow should handle errors gracefully', async () => {
-        // Mock a failure in novaService
-        jest.spyOn(novaService, 'summarizeDocument').mockRejectedValue(new Error('Bedrock failed'));
+        // Mock a failure in geminiService
+        jest.spyOn(geminiService, 'summarizeDocument').mockRejectedValue(new Error('Gemini failed'));
 
         const result = await workflowService.executeAgentWorkflow('summarize document');
         expect(result.reply).toContain('Partial failure');

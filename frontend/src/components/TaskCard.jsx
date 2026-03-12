@@ -1,7 +1,7 @@
 import React from 'react';
-import { CheckCircle2, Circle, ArrowUpRight } from 'lucide-react';
+import { CheckCircle2, Circle, ArrowUpRight, Trash2 } from 'lucide-react';
 
-const TaskCard = ({ _id, title, description, status, priority = 'medium', onToggle }) => {
+const TaskCard = ({ _id, title, description, status, priority = 'medium', onToggle, onDelete }) => {
     const isCompleted = status === 'completed' || status === 'done';
 
     return (
@@ -28,6 +28,16 @@ const TaskCard = ({ _id, title, description, status, priority = 'medium', onTogg
                         {!isCompleted && (
                             <ArrowUpRight size={14} className="text-text-muted group-hover:text-primary transition-colors flex-shrink-0" />
                         )}
+                        <button 
+                            className="text-text-muted hover:text-red-500 transition-colors flex-shrink-0 ml-2 opacity-0 group-hover:opacity-100"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                if (onDelete) onDelete(_id);
+                            }}
+                            title="Delete Task"
+                        >
+                            <Trash2 size={14} />
+                        </button>
                     </div>
                     <p className="text-xs text-text-muted leading-relaxed line-clamp-2 italic">
                         {description}

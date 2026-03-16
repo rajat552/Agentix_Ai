@@ -5,6 +5,7 @@ export const useVoiceInput = (onResult) => {
     const [recognition, setRecognition] = useState(null);
     const [error, setError] = useState(null);
     const onResultRef = useRef(onResult);
+    const isListeningRef = useRef(false);
 
     useEffect(() => {
         onResultRef.current = onResult;
@@ -14,24 +15,33 @@ export const useVoiceInput = (onResult) => {
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (SpeechRecognition) {
             const rec = new SpeechRecognition();
-            rec.continuous = false;
+            rec.continuous = true;
             rec.interimResults = false;
             rec.lang = 'en-US';
 
             rec.onresult = (event) => {
-                const transcript = event.results[0][0].transcript;
+                const results = event.results;
+                const transcript = results[results.length - 1][0].transcript;
+                console.log(`🎤 [Voice Input] Raw transcript received: "${transcript}"`);
                 if (transcript && onResultRef.current) {
-                    onResultRef.current(transcript);
+                    onResultRef.current(transcript.trim());
                 }
-                setIsListening(false);
             };
 
+            rec.onaudiostart = () => console.log('🎤 [Voice Input] 🟢 Audio hardware engaged (Microphone active).');
+            rec.onsoundstart = () => console.log('🎤 [Voice Input] 🔊 Sound detected (noise or voice).');
+            rec.onspeechstart = () => console.log('🎤 [Voice Input] 🗣️ Speech recognized! Listening to words...');
+            rec.onspeechend = () => console.log('🎤 [Voice Input] 🤐 Speech stopped.');
+
             rec.onerror = (event) => {
-                console.log(`🎤 [Voice Input] Error event fired: ${event.error}`);
-                if (event.error !== 'no-speech' && event.error !== 'aborted') {
+                if (event.error === 'no-speech') {
+                    console.log('🎤 [Voice Input] No speech detected. Waiting...');
+                    return; // Ignore and let it naturally timeout or continue
+                }
+                
+                if (event.error !== 'aborted') {
                     console.error('Speech recognition error event:', event);
                 }
-                setIsListening(false);
                 
                 let errorMessage = null;
                 switch(event.error) {
@@ -40,14 +50,17 @@ export const useVoiceInput = (onResult) => {
                         break;
                     case 'not-allowed':
                     case 'service-not-allowed':
-                        errorMessage = 'Microphone access denied.';
+                        errorMessage = 'Microphone access denied. Please allow microphone permissions.';
+                        isListeningRef.current = false; // Stop forcefully
+                        setIsListening(false);
                         break;
-                    case 'no-speech':
+                    case 'audio-capture':
+                        errorMessage = 'No microphone found. Please check your hardware.';
+                        isListeningRef.current = false; // Stop forcefully
+                        setIsListening(false);
+                        break;
                     case 'aborted':
                         return;
-                    case 'audio-capture':
-                        errorMessage = 'No microphone found.';
-                        break;
                     default:
                         errorMessage = `Error: ${event.error}`;
                 }
@@ -59,8 +72,18 @@ export const useVoiceInput = (onResult) => {
             };
 
             rec.onend = () => {
-                console.log('🎤 [Voice Input] Listening ended (Microphone turned off).');
-                setIsListening(false);
+                if (isListeningRef.current) {
+                    // Try to quietly restart if we are supposed to be continuously listening
+                    try {
+                        rec.start();
+                    } catch (e) {
+                        isListeningRef.current = false;
+                        setIsListening(false);
+                    }
+                } else {
+                    console.log('🎤 [Voice Input] Listening ended (Microphone turned off).');
+                    setIsListening(false);
+                }
             };
 
             setRecognition(rec);
@@ -75,20 +98,23 @@ export const useVoiceInput = (onResult) => {
             return;
         }
 
-        if (isListening) {
+        if (isListeningRef.current) {
+            isListeningRef.current = false;
             recognition.stop();
+            setIsListening(false);
         } else {
             try {
                 console.log('🎤 [Voice Input] Starting to listen...');
+                isListeningRef.current = true;
                 recognition.start();
                 setIsListening(true);
             } catch (err) {
                 console.error('Failed to start recognition:', err);
-                // If it's already started or another error occurs, just reset the state
+                isListeningRef.current = false;
                 setIsListening(false);
             }
         }
-    }, [recognition, isListening]);
+    }, [recognition]);
 
     return { isListening, toggleListening, isSupported: !!recognition, error };
 };

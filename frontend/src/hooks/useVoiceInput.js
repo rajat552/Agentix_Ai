@@ -15,16 +15,35 @@ export const useVoiceInput = (onResult) => {
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (SpeechRecognition) {
             const rec = new SpeechRecognition();
-            rec.continuous = true;
-            rec.interimResults = false;
+            rec.continuous = false;
+            rec.interimResults = true;
             rec.lang = 'en-US';
 
             rec.onresult = (event) => {
-                const results = event.results;
-                const transcript = results[results.length - 1][0].transcript;
-                console.log(`🎤 [Voice Input] Raw transcript received: "${transcript}"`);
-                if (transcript && onResultRef.current) {
-                    onResultRef.current(transcript.trim());
+                let finalTranscript = '';
+                let interimTranscript = '';
+                
+                for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    if (event.results[i].isFinal) {
+                        finalTranscript += event.results[i][0].transcript;
+                    } else {
+                        interimTranscript += event.results[i][0].transcript;
+                    }
+                }
+                
+                console.log(`🎤 [Voice Input] Interim: "${interimTranscript}", Final: "${finalTranscript}"`);
+                
+                // If we get a final transcript, we stop and emit
+                if (finalTranscript) {
+                    const text = finalTranscript.trim();
+                    if (text && onResultRef.current) {
+                        onResultRef.current(text);
+                    }
+                    
+                    // Automatically stop listening after one command
+                    isListeningRef.current = false;
+                    setIsListening(false);
+                    try { rec.stop(); } catch(e) {}
                 }
             };
 
@@ -72,17 +91,11 @@ export const useVoiceInput = (onResult) => {
             };
 
             rec.onend = () => {
+                console.log('🎤 [Voice Input] Listening ended (Microphone turned off).');
+                // Ensure state matches
                 if (isListeningRef.current) {
-                    // Try to quietly restart if we are supposed to be continuously listening
-                    try {
-                        rec.start();
-                    } catch (e) {
-                        isListeningRef.current = false;
-                        setIsListening(false);
-                    }
-                } else {
-                    console.log('🎤 [Voice Input] Listening ended (Microphone turned off).');
-                    setIsListening(false);
+                   isListeningRef.current = false;
+                   setIsListening(false);
                 }
             };
 
